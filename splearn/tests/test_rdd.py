@@ -409,25 +409,30 @@ class TestArrayRDD(SplearnTestCase):
 
         assert_array_equal(X1, X2)
 
+    def test_min(self):
+        return self._on_axis('min')
+
+    def test_max(self):
+        return self._on_axis('max')
+
+    def test_minmax(self):
+        data = np.arange(10, 70).reshape((15, 2, 2))
+        X = ArrayRDD(self.sc.parallelize(data))
+        assert_array_equal(
+            X.minmax(axis=0),
+            (data.min(axis=0), data.max(axis=0))
+        )
+        assert_array_equal(
+            X.minmax(axis=1),
+            (data.min(axis=1), data.max(axis=1))
+        )
+        assert_array_equal(
+            X.minmax(axis=2),
+            (data.min(axis=2), data.max(axis=2))
+        )
+
     def test_sum(self):
-        data = np.arange(400).reshape((100, 4))
-        rdd = self.sc.parallelize(data)
-        assert_equal(ArrayRDD(rdd).sum(), data.sum())
-        assert_array_equal(ArrayRDD(rdd).sum(axis=0), data.sum(axis=0))
-        assert_array_equal(ArrayRDD(rdd).sum(axis=1), data.sum(axis=1))
-
-        data = np.arange(600).reshape((100, 3, 2))
-        rdd = self.sc.parallelize(data)
-        assert_equal(ArrayRDD(rdd).sum(), data.sum())
-        assert_array_equal(ArrayRDD(rdd).sum(axis=0), data.sum(axis=0))
-        assert_array_equal(ArrayRDD(rdd).sum(axis=1), data.sum(axis=1))
-        assert_array_equal(ArrayRDD(rdd).sum(axis=2), data.sum(axis=2))
-
-    def test_sum_sparse(self):
-        data, rdd = self.generate_sparse_dataset()
-        assert_almost_equal(ArrayRDD(rdd).sum(), data.sum())
-        assert_array_almost_equal(ArrayRDD(rdd).sum(axis=0), data.sum(axis=0))
-        assert_array_almost_equal(ArrayRDD(rdd).sum(axis=1), data.sum(axis=1))
+        return self._on_axis('sum')
 
     def generate_sparse_dataset(self, shape=(1e3, 10), bsize=None):
         data = sp.rand(shape[0], shape[1], random_state=2, density=0.1)
@@ -459,6 +464,39 @@ class TestArrayRDD(SplearnTestCase):
         assert_almost_equal(ArrayRDD(rdd).mean(), data.mean())
         assert_array_almost_equal(ArrayRDD(rdd).mean(axis=0), data.mean(axis=0))
         assert_array_almost_equal(ArrayRDD(rdd).mean(axis=1), data.mean(axis=1))
+
+    def _on_axis(self, fun_name):
+        data = np.arange(10, 70).reshape((15, 2, 2))
+        X = ArrayRDD(self.sc.parallelize(data))
+        assert_array_equal(
+            getattr(X, fun_name)(),
+            getattr(data, fun_name)())
+        assert_array_equal(
+            getattr(X, fun_name)(2),
+            getattr(data, fun_name)(axis=2)
+        )
+        assert_array_equal(
+            getattr(X, fun_name)(1),
+            getattr(data, fun_name)(axis=1)
+        )
+        assert_array_equal(
+            getattr(X, fun_name)(0),
+            getattr(data, fun_name)(axis=0)
+        )
+
+        data, rdd = self.generate_sparse_dataset()
+        assert_almost_equal(
+            getattr(ArrayRDD(rdd), 'sum')(),
+            getattr(data, 'sum')()
+        )
+        assert_array_almost_equal(
+            getattr(ArrayRDD(rdd), 'sum')(axis=0),
+            getattr(data, 'sum')(axis=0)
+        )
+        assert_array_almost_equal(
+            getattr(ArrayRDD(rdd), 'sum')(axis=1),
+            getattr(data, 'sum')(axis=1)
+        )
 
 
 class TestDictRDD(SplearnTestCase):

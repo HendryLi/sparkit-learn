@@ -335,12 +335,31 @@ class ArrayRDD(BlockRDD):
         """Returns the data as numpy.array from each partition."""
         return np.concatenate(self.collect())
 
-    def sum(self, axis=None):
+    def min(self, axis=None):
+        return self._on_axis('min', axis)
+
+    def max(self, axis=None):
+        return self._on_axis('max', axis)
+
+    def minmax(self, axis=None):
+        mapped = self._rdd.map(lambda x: (x.min(axis=axis), x.max(axis=axis)))
         if axis in (None, 0):
-            return self._rdd.map(lambda x: x.sum(axis=axis)).sum()
+            return mapped.reduce(
+                lambda a, b: (
+                    np.array([a[0], b[0]]).min(axis=axis),
+                    np.array([a[1], b[1]]).max(axis=axis)
+                )
+            )
         else:
-            return self._rdd.map(lambda x: x.sum(axis=axis)) \
-                            .reduce(lambda a, b: _unpack_blocks([a, b]))
+            return mapped.reduce(
+                lambda a, b: (
+                    _unpack_blocks((np.array(a[0]), np.array(b[0]))),
+                    _unpack_blocks((np.array(a[1]), np.array(b[1])))
+                )
+            )
+
+    def sum(self, axis=None):
+        return self._on_axis('sum', axis)
 
     def dot(self, other):
         # TODO naive dot implementation with another ArrayRDD
@@ -365,6 +384,15 @@ class ArrayRDD(BlockRDD):
 
         n, mean = self._rdd.map(mapper).treeReduce(reducer)
         return mean
+
+    def _on_axis(self, fun_name, axis=None):
+        mapped = self._rdd.map(lambda x: getattr(x, fun_name)(axis=axis))
+        if axis in (None, 0):
+            return mapped.reduce(
+                lambda a, b: getattr(np.array([a, b]), fun_name)(axis=axis)
+            )
+        else:
+            return mapped.reduce(lambda a, b: _unpack_blocks([a, b]))
 
     # def tosparse(self):
     #     return sp.vstack(self.collect())
